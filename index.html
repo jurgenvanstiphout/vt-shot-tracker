@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VT Shot Tracker Multiplayer</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body,html{margin:0;height:100%;background:#0d1117;color:#fff;font-family:sans-serif;}
+#map{height:100%}
+
+.header{
+position:absolute;top:10px;left:50%;transform:translateX(-50%);
+background:#161b22;padding:8px 16px;border-radius:20px;z-index:1000;
+}
+
+.leaderboard{
+position:absolute;right:10px;top:10px;
+background:#161b22;padding:10px;border-radius:10px;
+font-size:12px;z-index:1000;max-width:160px;
+}
+
+.shot{
+position:fixed;inset:0;background:rgba(0,0,0,0.9);
+display:flex;align-items:center;justify-content:center;
+font-size:40px;font-weight:bold;z-index:2000;
+}
+</style>
+</head>
+<body>
+
+<div class="header" id="user"></div>
+<div class="leaderboard" id="lb">Loading...</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
+
+<script>
+
+// 🔥 PLAK HIER JOUW CONFIG
+const firebaseConfig = {
+  apiKey: "PASTE_HIER",
+  authDomain: "PASTE_HIER",
+  projectId: "PASTE_HIER",
+  storageBucket: "PASTE_HIER",
+  messagingSenderId: "PASTE_HIER",
+  appId: "PASTE_HIER"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// ─── USER ─────────────────
+let user = localStorage.getItem("user");
+if(!user){
+  user = prompt("Naam?");
+  localStorage.setItem("user", user);
+}
+document.getElementById("user").innerText = user;
+
+// ─── LEADERBOARD LIVE ─────
+db.collection("scores").onSnapshot(snapshot=>{
+  let list = [];
+  snapshot.forEach(doc=>{
+    list.push(doc.data());
+  });
+
+  list.sort((a,b)=>b.score-a.score);
+
+  document.getElementById("lb").innerHTML =
+    "<b>🍻 Live</b><br>" +
+    list.map(x=>`${x.name}: ${x.score}`).join("<br>");
+});
+
+// ─── SCORE UPDATE ─────────
+function addPoint(){
+  const ref = db.collection("scores").doc(user);
+
+  ref.get().then(doc=>{
+    if(doc.exists){
+      ref.update({score: doc.data().score + 1});
+    } else {
+      ref.set({name:user, score:1});
+    }
+  });
+}
+
+// ─── MAP ──────────────────
+const map = L.map('map').setView([45.295,6.582],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// ─── SHOT ─────────────────
+function shot(){
+  const el=document.createElement("div");
+  el.className="shot";
+  el.innerHTML="🚨 SHOTJE! 🚨";
+  document.body.appendChild(el);
+
+  navigator.vibrate?.([200,100,200]);
+  new Audio("https://www.soundjay.com/misc/sounds/air-horn-1.mp3").play();
+
+  addPoint();
+
+  setTimeout(()=>el.remove(),2000);
+}
+
+// 👉 TEST KNOP (tijdelijk)
+setTimeout(()=>shot(),3000);
+
+</script>
+
+</body>
+</html>
