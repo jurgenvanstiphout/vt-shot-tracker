@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VT Shot Tracker V18</title>
+    <title>VT Shot Tracker V19 - Audio & Fun</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         body, html { margin: 0; height: 100%; background: #111; color: #fff; font-family: sans-serif; overflow: hidden; }
@@ -21,10 +21,10 @@
         .settings-panel { display: none; position: absolute; top: 65px; right: 10px; z-index: 1001; background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #444; width: 280px; color: white; max-height: 70vh; overflow-y: auto; }
         
         .btn { background: #007bff; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; margin-top: 8px; cursor: pointer; font-weight: bold; }
-        .btn-danger { background: #dc3545; display: none; } /* Deactiveer knop */
-        select, input[type=range] { width: 100%; margin-top: 5px; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; }
+        .btn-danger { background: #dc3545; display: none; }
+        select, input[type=range], input[type=file] { width: 100%; margin-top: 5px; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; box-sizing: border-box; }
         
-        .shot { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 35px; font-weight: bold; z-index: 9999; text-align: center; }
+        .shot { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; z-index: 9999; text-align: center; padding: 20px; }
     </style>
 </head>
 <body>
@@ -39,6 +39,9 @@
 <div class="settings-panel" id="settingsPanel">
     <strong>Systeem & Batterij</strong>
     <button id="wakeLockBtn" class="btn" onclick="toggleWakeLock()">🚫 Houd Scherm Aan</button>
+    <hr style="border-color:#333">
+    <strong>Eigen Toeter (MP3)</strong>
+    <input type="file" id="audioUpload" accept="audio/*" onchange="handleAudioUpload(event)">
     <hr style="border-color:#333">
     <strong>Shot Kans: <span id="probVal">20</span>%</strong>
     <input type="range" id="probSlider" min="0" max="100" value="20" oninput="updateProb(this.value)">
@@ -70,26 +73,46 @@ const db = firebase.firestore();
 
 const lifts = [{"id":"lift_1","name":"VT26 GRAND FOND","startLat":45.280839,"startLng":6.568225,"endLat":45.266276,"endLng":6.580416},{"id":"lift_2","name":"VT24 THORENS","startLat":45.272228,"startLng":6.591826,"endLat":45.265912,"endLng":6.595289},{"id":"lift_3","name":"VT23 PORTETTE","startLat":45.286625,"startLng":6.583390,"endLat":45.271909,"endLng":6.591276},{"id":"lift_4","name":"VT21 MORAINE","startLat":45.287691,"startLng":6.583313,"endLat":45.272819,"endLng":6.606181},{"id":"lift_5","name":"VT14 CASCADES","startLat":45.295120,"startLng":6.577489,"endLat":45.291131,"endLng":6.594548},{"id":"lift_6","name":"VT13 PECLET","startLat":45.295463,"startLng":6.575864,"endLat":45.291644,"endLng":6.614381},{"id":"lift_7","name":"VT15 LAC BLANC","startLat":45.294263,"startLng":6.582296,"endLat":45.296616,"endLng":6.606559},{"id":"lift_8","name":"VT2 PIONNIERS","startLat":45.295278,"startLng":6.582065,"endLat":45.304995,"endLng":6.586842},{"id":"lift_9","name":"PLEIN SUD","startLat":45.295177,"startLng":6.571975,"endLat":45.305587,"endLng":6.588725},{"id":"lift_10","name":"3 VALLEES CH","startLat":45.305070,"startLng":6.586287,"endLat":45.312287,"endLng":6.586960},{"id":"lift_11","name":"3 VALLEES GD","startLat":45.305032,"startLng":6.586000,"endLat":45.312353,"endLng":6.581786},{"id":"lift_12","name":"CAIRN","startLat":45.298637,"startLng":6.577752,"endLat":45.294277,"endLng":6.564548},{"id":"lift_13","name":"CARON","startLat":45.294235,"startLng":6.564550,"endLat":45.263873,"endLng":6.560288},{"id":"lift_14","name":"2 LACS","startLat":45.296369,"startLng":6.571342,"endLat":45.281994,"endLng":6.573995},{"id":"lift_15","name":"PLAIN DE L'EAU","startLat":45.302925,"startLng":6.544198,"endLat":45.286529,"endLng":6.549560},{"id":"lift_16","name":"BOISMINT","startLat":45.295065,"startLng":6.561461,"endLat":45.281305,"endLng":6.551311},{"id":"lift_17","name":"MOUTIERE","startLat":45.294950,"startLng":6.562356,"endLat":45.282488,"endLng":6.572903},{"id":"lift_18","name":"ROSAËL","startLat":45.246670,"startLng":6.570218,"endLat":45.265988,"endLng":6.575360},{"id":"lift_19","name":"PEYRON","startLat":45.246049,"startLng":6.570757,"endLat":45.251287,"endLng":6.587773},{"id":"lift_20","name":"BOUCHET","startLat":45.250579,"startLng":6.586984,"endLat":45.255591,"endLng":6.599923},{"id":"lift_21","name":"TYROLIENNE","startLat":45.255343,"startLng":6.600637,"endLat":45.265795,"endLng":6.594371},{"id":"lift_22","name":"FACE NORD","startLat":45.275894,"startLng":6.598861,"endLat":45.266142,"endLng":6.595836},{"id":"lift_23","name":"ORELLE-CARON","startLat":45.246219,"startLng":6.569598,"endLat":45.263103,"endLng":6.559835},{"id":"lift_24","name":"LA BEE","startLat":45.297014,"startLng":6.582790,"endLat":45.282345,"endLng":6.573686}];
 
+const funnyMessages = [
+    "Sneeuw in je nek, shotje in je bek! ❄️",
+    "Niet lullen maar vullen! 🥃",
+    "Wie niet skiën wil, moet drinken! 🎿",
+    "Een berg zonder drank is een bult! 🏔️",
+    "Gele sneeuw is geen limonade, dit wel! 🥂",
+    "Geen gezeik, iedereen rijk! (aan drank) 🤑",
+    "Hoppa! De berg op en de fles leeg! 🚀",
+    "Beter een shotje in de lift dan een gipsje in de kliniek! 🏥",
+    "Vroeger was de lucht nog schoon en de seks nog smerig! Proost! 🍻"
+];
+
 let user = localStorage.getItem("vt_user") || prompt("Naam?") || "Skiër";
 localStorage.setItem("vt_user", user);
 document.getElementById("userNameDisplay").innerText = user;
 
 let activeLift = null, triggered = false, wakeLock = null, shotProbability = 20;
-let liftLayers = {}; // Opslag voor de lijnen op de kaart
+let liftLayers = {}; 
+let hornUrl = localStorage.getItem("vt_horn") || "https://www.soundjay.com/misc/sounds/air-horn-1.mp3";
 
 const map = L.map('map', {zoomControl: false}).setView([45.295, 6.582], 14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// JOUW LOCATIE: RODE KLEUR
 let userMarker = L.circleMarker([0,0], {radius: 8, color: "#fff", fillColor: "#ff0000", fillOpacity: 1, weight: 2}).addTo(map);
 
 const liftSelect = document.getElementById("liftSelect");
 lifts.forEach(l => {
-    // Teken liften en sla referentie op
     liftLayers[l.id] = L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#007bff", weight: 3, opacity: 0.6}).addTo(map);
     let opt = document.createElement("option"); opt.value = l.id; opt.innerText = l.name;
     liftSelect.appendChild(opt);
 });
+
+function handleAudioUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = e => { hornUrl = e.target.result; localStorage.setItem("vt_horn", hornUrl); alert("Toeter opgeslagen!"); };
+        reader.readAsDataURL(file);
+    }
+}
 
 async function toggleWakeLock() {
     if (wakeLock) { await wakeLock.release(); wakeLock = null; document.getElementById("wakeLockBtn").style.background="#007bff"; }
@@ -98,10 +121,9 @@ async function toggleWakeLock() {
 
 function deactivateLift() {
     if (activeLift) {
-        liftLayers[activeLift.id].setStyle({color: "#007bff", weight: 3}); // Reset kleur
-        addToLog(`🛑 Handmatig gestopt: ${activeLift.name}`);
-        activeLift = null;
-        triggered = false;
+        liftLayers[activeLift.id].setStyle({color: "#007bff", weight: 3});
+        addToLog(`🛑 Gestopt: ${activeLift.name}`);
+        activeLift = null; triggered = false;
         document.getElementById("statusBadge").innerText = "STAND-BY";
         document.getElementById("deactivateBtn").style.display = "none";
     }
@@ -131,7 +153,7 @@ function checkLogic(lat, lng) {
             activeLift = l; triggered = false;
             document.getElementById("statusBadge").innerText = l.name;
             document.getElementById("deactivateBtn").style.display = "block";
-            liftLayers[l.id].setStyle({color: "#ffff00", weight: 6}); // ACTIEVE LIFT GEEL
+            liftLayers[l.id].setStyle({color: "#ffff00", weight: 6});
             addToLog(`🚠 Start: ${l.name}`);
         }
         
@@ -140,10 +162,10 @@ function checkLogic(lat, lng) {
             if (!triggered && dMid < 200) {
                 triggered = true;
                 if (Math.random() * 100 < shotProbability) shot(l.name);
-                else addToLog(`✅ Safe in ${l.name}`);
+                else addToLog(`✅ Geluk gehad in ${l.name}`);
             }
             if (dEnd < 100) {
-                liftLayers[l.id].setStyle({color: "#007bff", weight: 3}); // Reset kleur
+                liftLayers[l.id].setStyle({color: "#007bff", weight: 3});
                 activeLift = null;
                 document.getElementById("statusBadge").innerText = "STAND-BY";
                 document.getElementById("deactivateBtn").style.display = "none";
@@ -153,15 +175,21 @@ function checkLogic(lat, lng) {
 }
 
 function shot(name) {
+    const randomMsg = funnyMessages[Math.floor(Math.random() * funnyMessages.length)];
     const el = document.createElement("div");
-    el.className = "shot"; el.innerHTML = "🚨 SHOTJE! 🚨<br><span style='font-size:20px'>HUP HOLLAND! 🍻</span>";
+    el.className = "shot"; 
+    el.innerHTML = `🚨 SHOTJE TIJD! 🚨<br><span style='font-size:22px; margin-top:20px;'>${randomMsg}</span><br><span style='font-size:16px; color:yellow;'>Lift: ${name}</span>`;
     document.body.appendChild(el);
-    addToLog(`🥃 DRINKEN in ${name}!`);
+    
+    // Play sound
+    new Audio(hornUrl).play().catch(e => console.log("Audio play failed"));
+
+    addToLog(`🥃 SHOTJE in ${name}!`);
     db.collection("scores").doc(user).get().then(doc => {
         if(doc.exists) db.collection("scores").doc(user).update({score: doc.data().score + 1});
         else db.collection("scores").doc(user).set({name: user, score: 1});
     });
-    setTimeout(() => el.remove(), 4000);
+    setTimeout(() => el.remove(), 5000);
 }
 
 function startSimulatie() {
