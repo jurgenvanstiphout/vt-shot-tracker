@@ -3,76 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VT Shot Tracker V8</title>
-
+    <title>VT Shot Tracker V11</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-
     <style>
         body, html { margin: 0; height: 100%; background: #f0f2f5; color: #1c1e21; font-family: sans-serif; overflow: hidden; }
-        #map { height: 100%; width: 100%; }
-
-        /* UI Elementen */
-        .header {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.95); padding: 10px 25px; border-radius: 30px; 
-            z-index: 1000; border: 1px solid #ccc; font-weight: bold; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        #map { height: 100%; width: 100%; z-index: 1; }
+        
+        .header { 
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
+            background: rgba(255, 255, 255, 0.95); padding: 8px 15px; border-radius: 30px; 
+            z-index: 1000; border: 1px solid #ccc; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); white-space: nowrap;
         }
 
-        .leaderboard {
-            position: absolute; left: 10px; bottom: 25px;
-            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px;
-            font-size: 14px; z-index: 1000; border: 1px solid #ccc; min-width: 120px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-height: 30vh; overflow-y: auto;
+        .status-badge { 
+            font-size: 12px; padding: 4px 10px; border-radius: 15px; 
+            background: #eee; font-weight: bold; display: flex; align-items: center; gap: 8px;
         }
 
-        .settings-btn {
-            position: absolute; right: 10px; top: 10px; z-index: 1000;
-            background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 50%; 
-            cursor: pointer; font-size: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        .reset-btn { 
+            background: #ff4757; color: white; border: none; border-radius: 50%; 
+            width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: none; 
+            align-items: center; justify-content: center;
         }
 
-        .settings-panel {
-            display: none; position: absolute; top: 65px; right: 10px; z-index: 1001;
-            background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #ccc;
-            width: 250px; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-
-        .btn {
-            background: #007bff; color: white; border: none; padding: 10px; 
-            width: 100%; border-radius: 5px; margin-top: 10px; cursor: pointer; font-weight: bold;
-        }
-
-        .btn-test { background: #ff4757; }
-        .btn-sim { background: #2ed573; }
-
-        select { width: 100%; padding: 8px; margin-top: 10px; border-radius: 5px; border: 1px solid #ccc; }
-
-        /* Shot Animatie */
-        .shot {
-            position: fixed; inset: 0; background: rgba(255, 0, 0, 0.95);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 40px; font-weight: bold; z-index: 9999; text-align: center; color: white;
-        }
-
-        input[type=range] { width: 100%; }
+        .leaderboard { position: absolute; left: 10px; bottom: 25px; background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px; font-size: 14px; z-index: 1000; border: 1px solid #ccc; min-width: 130px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-height: 20vh; overflow-y: auto; }
+        .settings-btn { position: absolute; right: 10px; top: 10px; z-index: 1000; background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 50%; cursor: pointer; font-size: 20px; }
+        .settings-panel { display: none; position: absolute; top: 65px; right: 10px; z-index: 1001; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #ccc; width: 260px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        
+        .btn { background: #007bff; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; margin-top: 8px; cursor: pointer; font-weight: bold; }
+        .shot { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; z-index: 9999; text-align: center; color: white; padding: 20px; }
     </style>
 </head>
 <body>
 
-<div class="header" id="userNameDisplay">Laden...</div>
+<div class="header">
+    <strong id="userNameDisplay">...</strong>
+    <div id="statusBadge" class="status-badge">
+        <span id="statusText">Stand-by</span>
+        <button id="manualReset" class="reset-btn" onclick="resetLift()">✕</button>
+    </div>
+</div>
 
 <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+
 <div class="settings-panel" id="settingsPanel">
     <strong>Shot Kans: <span id="probVal">20</span>%</strong><br>
-    <input type="range" id="probSlider" min="0" max="100" value="20" oninput="updateProb(this.value)">
-    
-    <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
-    
-    <strong>Simulatie (Testen)</strong>
-    <select id="liftSelect"></select>
-    <button class="btn btn-sim" onclick="startSimulatie()">🚀 Start Simulatie Rit</button>
-    
-    <button class="btn btn-test" onclick="testShot()">🚨 Direct Shotje</button>
+    <input type="range" id="probSlider" style="width:100%" min="0" max="100" value="20" oninput="updateProb(this.value)">
+    <hr>
+    <strong>Toeter Geluid:</strong>
+    <input type="file" id="audioUpload" accept="audio/*" onchange="handleFileUpload(event)" style="font-size:11px; margin-top:5px;">
+    <hr>
+    <strong>Simulatie</strong>
+    <select id="liftSelect" style="width:100%; padding:5px;"></select>
+    <button class="btn" style="background:#2ed573" onclick="startSimulatie()">🚀 Start Rit</button>
 </div>
 
 <div class="leaderboard" id="lb">Scores laden...</div>
@@ -83,7 +67,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-// 1. FIREBASE
+// 1. CONFIG & DATA
 const firebaseConfig = {
     apiKey: "AIzaSyBAGH-V7wnpHpu6bTIhwU-hFK5KJGDYj5g",
     authDomain: "vt-shot-tracker.firebaseapp.com",
@@ -92,184 +76,131 @@ const firebaseConfig = {
     messagingSenderId: "65574143328",
     appId: "1:65574143328:web:3219987d4ce5a9ed478a05"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// 2. DATA & CONFIG
 const lifts = [
     {"id":"L1","name":"VT26 GRAND FOND","startLat":45.2808,"startLng":6.5682,"endLat":45.2662,"endLng":6.5804},
     {"id":"L2","name":"VT24 THORENS","startLat":45.2722,"startLng":6.5918,"endLat":45.2659,"endLng":6.5952},
     {"id":"L3","name":"VT23 PORTETTE","startLat":45.2866,"startLng":6.5833,"endLat":45.2719,"endLng":6.5912},
     {"id":"L4","name":"VT21 MORAINE","startLat":45.2876,"startLng":6.5833,"endLat":45.2728,"endLng":6.6061},
     {"id":"L5","name":"VT14 CASCADES","startLat":45.2951,"startLng":6.5774,"endLat":45.2911,"endLng":6.5945},
-    {"id":"L6","name":"FUNITEL PECLET","startLat":45.2954,"startLng":6.5758,"endLat":45.2916,"endLng":6.6143},
-    {"id":"L7","name":"VT15 LAC BLANC","startLat":45.2942,"startLng":6.5822,"endLat":45.2966,"endLng":6.6065},
-    {"id":"L8","name":"VT2 PIONNIERS","startLat":45.2952,"startLng":6.5820,"endLat":45.3049,"endLng":6.5868},
-    {"id":"L9","name":"PLEIN SUD","startLat":45.2951,"startLng":6.5719,"endLat":45.3055,"endLng":6.5887},
-    {"id":"L10","name":"3 VALLEES","startLat":45.3050,"startLng":6.5862,"endLat":45.3122,"endLng":6.5869},
-    {"id":"L11","name":"CAIRN","startLat":45.2986,"startLng":6.5777,"endLat":45.2942,"endLng":6.5645},
-    {"id":"L12","name":"CARON","startLat":45.2942,"startLng":6.5645,"endLat":45.2638,"endLng":6.5602},
-    {"id":"L13","name":"2 LACS","startLat":45.2963,"startLng":6.5713,"endLat":45.2819,"endLng":6.5739},
-    {"id":"L14","name":"BOISMINT","startLat":45.2950,"startLng":6.5614,"endLat":45.2813,"endLng":6.5513},
-    {"id":"L15","name":"MOUTIERE","startLat":45.2949,"startLng":6.5623,"endLat":45.2824,"endLng":6.5729}
+    {"id":"L12","name":"CARON","startLat":45.2942,"startLng":6.5645,"endLat":45.2638,"endLng":6.5602}
 ];
 
-// Vul dropdown menu
-const select = document.getElementById("liftSelect");
-lifts.forEach(l => {
-    let opt = document.createElement("option");
-    opt.value = l.id;
-    opt.innerText = l.name;
-    select.appendChild(opt);
-});
-
-// 3. INITIALISATIE USER
-let user = localStorage.getItem("vt_user");
-if(!user){
-    user = prompt("Wat is je naam?");
-    if(!user) user = "Skiër_" + Math.floor(Math.random()*999);
-    localStorage.setItem("vt_user", user);
-}
+// 2. INITIALISATIE
+let user = localStorage.getItem("vt_user") || prompt("Naam?") || "Skiër";
+localStorage.setItem("vt_user", user);
 document.getElementById("userNameDisplay").innerText = user;
 
 let shotProbability = localStorage.getItem("vt_prob") || 20;
-document.getElementById("probSlider").value = shotProbability;
-document.getElementById("probVal").innerText = shotProbability;
+let hornUrl = localStorage.getItem("vt_horn") || "https://www.soundjay.com/misc/sounds/air-horn-1.mp3";
+let activeLift = null;
+let triggered = false;
+let liftLayers = {};
 
-function toggleSettings() {
-    const p = document.getElementById("settingsPanel");
-    p.style.display = p.style.display === "block" ? "none" : "block";
-}
-
-function updateProb(val) {
-    shotProbability = val;
-    document.getElementById("probVal").innerText = val;
-    localStorage.setItem("vt_prob", val);
-}
-
-// 4. KAART
 const map = L.map('map', {zoomControl: false}).setView([45.295, 6.582], 14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
 lifts.forEach(l => {
-    L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#007bff", weight: 4, opacity: 0.6}).addTo(map);
+    liftLayers[l.id] = L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#007bff", weight: 4, opacity: 0.5}).addTo(map);
+    let opt = document.createElement("option"); opt.value = l.id; opt.innerText = l.name;
+    document.getElementById("liftSelect").appendChild(opt);
 });
 
 let userMarker = L.circleMarker([0,0], {radius: 9, color: "#fff", fillColor: "#ff4757", fillOpacity: 1, weight: 3}).addTo(map);
 
-// 5. SCORE & SHOT
-function addPoint(){
-    const ref = db.collection("scores").doc(user);
-    ref.get().then(doc => {
-        if(doc.exists) ref.update({score: doc.data().score + 1});
-        else ref.set({name: user, score: 1});
-    });
+// 3. FUNCTIES
+function updateProb(v) { shotProbability = v; document.getElementById("probVal").innerText = v; localStorage.setItem("vt_prob", v); }
+function toggleSettings() { const s = document.getElementById("settingsPanel"); s.style.display = s.style.display === "block" ? "none" : "block"; }
+
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = e => { hornUrl = e.target.result; localStorage.setItem("vt_horn", hornUrl); alert("Toeter opgeslagen!"); };
+        reader.readAsDataURL(file);
+    }
 }
 
-db.collection("scores").onSnapshot(snap => {
-    let arr = [];
-    snap.forEach(d => arr.push(d.data()));
-    arr.sort((a,b) => b.score - a.score);
-    document.getElementById("lb").innerHTML = "<b>🍻 Top Drinkers</b><hr>" + 
-        arr.map(x => `<div>${x.name}: <b>${x.score}</b></div>`).join("");
-});
-
-function shot() {
-    const el = document.createElement("div");
-    el.className = "shot";
-    el.innerHTML = "<div>🚨 SHOTJE! 🚨</div><div style='font-size:22px; margin-top:10px;'>HUP HOLLAND HUP 🍻</div>";
-    document.body.appendChild(el);
-    if(navigator.vibrate) navigator.vibrate([300, 100, 300]);
-    new Audio("https://www.soundjay.com/misc/sounds/air-horn-1.mp3").play().catch(()=>{});
-    addPoint();
-    setTimeout(() => el.remove(), 4000);
+function resetLift() {
+    if(activeLift) liftLayers[activeLift.id].setStyle({color: "#007bff", weight: 4});
+    activeLift = null;
+    triggered = false;
+    document.getElementById("statusText").innerText = "Stand-by";
+    document.getElementById("statusBadge").style.background = "#eee";
+    document.getElementById("manualReset").style.display = "none";
 }
-
-function testShot() { shot(); toggleSettings(); }
-
-// 6. SIMULATIE LOGICA
-function startSimulatie() {
-    const liftId = document.getElementById("liftSelect").value;
-    const lift = lifts.find(l => l.id === liftId);
-    toggleSettings();
-    
-    console.log("Simulatie start: " + lift.name);
-    
-    // Stap 1: Ga naar start
-    updateLocatie(lift.startLat, lift.startLng);
-    
-    // Stap 2: Na 2 sec naar het midden
-    setTimeout(() => {
-        const midLat = (lift.startLat + lift.endLat) / 2;
-        const midLng = (lift.startLng + lift.endLng) / 2;
-        updateLocatie(midLat, midLng);
-    }, 3000);
-
-    // Stap 3: Na 6 sec naar het einde
-    setTimeout(() => {
-        updateLocatie(lift.endLat, lift.endLng);
-    }, 7000);
-}
-
-// Helper om marker te verplaatsen en logica te triggeren
-function updateLocatie(lat, lng) {
-    userMarker.setLatLng([lat, lng]);
-    map.panTo([lat, lng]);
-    checkLifts(lat, lng);
-}
-
-// 7. GPS LOGICA (HERBRUIKBAAR)
-let activeLift = null;
-let triggered = false;
 
 function getDist(lat1, lon1, lat2, lon2) {
     const R = 6371000;
     const dLat = (lat2-lat1) * Math.PI/180;
     const dLon = (lon2-lon1) * Math.PI/180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-function checkLifts(lat, lng) {
+function checkLogic(lat, lng) {
+    userMarker.setLatLng([lat, lng]);
+    const statusText = document.getElementById("statusText");
+    const statusBadge = document.getElementById("statusBadge");
+    const resetBtn = document.getElementById("manualReset");
+
     lifts.forEach(l => {
         const dStart = getDist(lat, lng, l.startLat, l.startLng);
-        
-        // Inchecken
-        if (!activeLift && dStart < 80) {
+        const dEnd = getDist(lat, lng, l.endLat, l.endLng);
+
+        if (!activeLift && dStart < 75) {
             activeLift = l;
             triggered = false;
-            console.log("Ingecheckt bij: " + l.name);
+            statusText.innerText = l.name;
+            statusBadge.style.background = "#2ed573";
+            resetBtn.style.display = "flex";
+            liftLayers[l.id].setStyle({color: "#ff4757", weight: 6, opacity: 1});
         }
 
         if (activeLift && l.id === activeLift.id) {
-            const midLat = (l.startLat + l.endLat) / 2;
-            const midLng = (l.startLng + l.endLng) / 2;
-            const dMid = getDist(lat, lng, midLat, midLng);
-
-            // Middenpunt actie
+            const dMid = getDist(lat, lng, (l.startLat+l.endLat)/2, (l.startLng+l.endLng)/2);
             if (!triggered && dMid < 150) {
                 triggered = true;
-                console.log("Middenpunt bereikt van: " + l.name);
-                if (Math.random() * 100 < shotProbability) {
-                    shot();
-                }
+                if (Math.random() * 100 < shotProbability) shot();
             }
-            
-            // Uitchecken
-            const dEnd = getDist(lat, lng, l.endLat, l.endLng);
-            if (dEnd < 80) {
-                console.log("Uitgecheckt bij: " + l.name);
-                activeLift = null;
-            }
+            if (dEnd < 75) resetLift();
         }
     });
 }
 
-// Echte GPS aanzetten
+function shot() {
+    const el = document.createElement("div");
+    el.className = "shot";
+    el.innerHTML = "<div>🚨 SHOTJE! 🚨</div><div style='font-size:20px'>Hup Holland Hup! 🍻</div>";
+    document.body.appendChild(el);
+    if(navigator.vibrate) navigator.vibrate([400, 100, 400]);
+    new Audio(hornUrl).play().catch(()=>{});
+    db.collection("scores").doc(user).get().then(doc => {
+        if(doc.exists) db.collection("scores").doc(user).update({score: doc.data().score + 1});
+        else db.collection("scores").doc(user).set({name: user, score: 1});
+    });
+    setTimeout(() => el.remove(), 4000);
+}
+
+function startSimulatie() {
+    const lift = lifts.find(l => l.id === document.getElementById("liftSelect").value);
+    toggleSettings();
+    checkLogic(lift.startLat, lift.startLng);
+    setTimeout(() => { map.panTo([(lift.startLat+lift.endLat)/2, (lift.startLng+lift.endLng)/2]); checkLogic((lift.startLat+lift.endLat)/2, (lift.startLng+lift.endLng)/2); }, 3000);
+    setTimeout(() => { map.panTo([lift.endLat, lift.endLng]); checkLogic(lift.endLat, lift.endLng); }, 6000);
+}
+
+db.collection("scores").onSnapshot(snap => {
+    let arr = []; snap.forEach(d => arr.push(d.data()));
+    arr.sort((a,b) => b.score - a.score);
+    document.getElementById("lb").innerHTML = "<b>🍻 Top Drinkers</b><hr>" + arr.map(x => `<div>${x.name}: <b>${x.score}</b></div>`).join("");
+});
+
 navigator.geolocation.watchPosition(pos => {
-    updateLocatie(pos.coords.latitude, pos.coords.longitude);
-}, e => console.log(e), {enableHighAccuracy: true});
+    checkLogic(pos.coords.latitude, pos.coords.longitude);
+}, null, {enableHighAccuracy: true});
 
 </script>
 </body>
