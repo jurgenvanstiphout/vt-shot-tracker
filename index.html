@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VT Shot Tracker V19 - Audio & Fun</title>
+    <title>VT Shot Tracker V21 - MAX VOLUME</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         body, html { margin: 0; height: 100%; background: #111; color: #fff; font-family: sans-serif; overflow: hidden; }
@@ -40,6 +40,7 @@
     <strong>Systeem & Batterij</strong>
     <button id="wakeLockBtn" class="btn" onclick="toggleWakeLock()">🚫 Houd Scherm Aan</button>
     <hr style="border-color:#333">
+    <strong>🔊 Shot Volume: 100%</strong>
     <strong>Eigen Toeter (MP3)</strong>
     <input type="file" id="audioUpload" accept="audio/*" onchange="handleAudioUpload(event)">
     <hr style="border-color:#333">
@@ -79,7 +80,7 @@ const funnyMessages = [
     "Wie niet skiën wil, moet drinken! 🎿",
     "Een berg zonder drank is een bult! 🏔️",
     "Gele sneeuw is geen limonade, dit wel! 🥂",
-    "Geen gezeik, iedereen rijk! (aan drank) 🤑",
+    "Geen gezeik, iedereen rijk! 🤑",
     "Hoppa! De berg op en de fles leeg! 🚀",
     "Beter een shotje in de lift dan een gipsje in de kliniek! 🏥",
     "Vroeger was de lucht nog schoon en de seks nog smerig! Proost! 🍻"
@@ -181,15 +182,22 @@ function shot(name) {
     el.innerHTML = `🚨 SHOTJE TIJD! 🚨<br><span style='font-size:22px; margin-top:20px;'>${randomMsg}</span><br><span style='font-size:16px; color:yellow;'>Lift: ${name}</span>`;
     document.body.appendChild(el);
     
-    // Play sound
-    new Audio(hornUrl).play().catch(e => console.log("Audio play failed"));
+    // TRILFUNCTIE: MAX AGGRESSIEF
+    if (navigator.vibrate) {
+        navigator.vibrate([500, 200, 500, 200, 500, 200, 800]);
+    }
+
+    // Play sound op MAX volume
+    const audio = new Audio(hornUrl);
+    audio.volume = 1.0; 
+    audio.play().catch(e => console.log("Volume interactie nodig"));
 
     addToLog(`🥃 SHOTJE in ${name}!`);
     db.collection("scores").doc(user).get().then(doc => {
         if(doc.exists) db.collection("scores").doc(user).update({score: doc.data().score + 1});
         else db.collection("scores").doc(user).set({name: user, score: 1});
     });
-    setTimeout(() => el.remove(), 5000);
+    setTimeout(() => el.remove(), 6000);
 }
 
 function startSimulatie() {
