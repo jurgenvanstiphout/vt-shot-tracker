@@ -1,38 +1,38 @@
+
 <!DOCTYPE html>
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VT Shot Tracker V16 - All Lifts</title>
+    <title>VT Shot Tracker V17</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
-        body, html { margin: 0; height: 100%; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        #map { height: 100%; width: 100%; z-index: 1; filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
+        /* OLED-vriendelijke Dark Mode maar met zichtbare kaart-omtrek */
+        body, html { margin: 0; height: 100%; background: #111; color: #fff; font-family: sans-serif; overflow: hidden; }
+        #map { height: 100%; width: 100%; z-index: 1; filter: invert(90%) hue-rotate(180deg) brightness(85%) contrast(90%); background: #222; }
         
-        .header { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.9); padding: 8px 15px; border-radius: 30px; z-index: 1000; border: 1px solid #444; display: flex; align-items: center; gap: 10px; min-width: 220px; justify-content: center; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .status-badge { font-size: 11px; padding: 4px 10px; border-radius: 15px; background: #333; color: #eee; font-weight: bold; text-transform: uppercase; }
+        .header { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(30, 30, 30, 0.9); padding: 8px 15px; border-radius: 30px; z-index: 1000; border: 1px solid #444; display: flex; align-items: center; gap: 10px; min-width: 220px; justify-content: center; }
+        .status-badge { font-size: 11px; padding: 4px 10px; border-radius: 15px; background: #444; color: #eee; font-weight: bold; }
         
         .side-panel { position: absolute; left: 10px; bottom: 20px; z-index: 1000; width: 200px; display: flex; flex-direction: column; gap: 8px; }
-        .box { background: rgba(15, 15, 15, 0.95); padding: 12px; border-radius: 12px; border: 1px solid #333; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+        .box { background: rgba(20, 20, 20, 0.95); padding: 12px; border-radius: 12px; border: 1px solid #333; font-size: 12px; }
         
         #historyLog { max-height: 120px; overflow-y: auto; font-size: 10px; color: #aaa; margin-top: 8px; border-top: 1px solid #333; padding-top: 5px; }
-        .log-entry { padding: 4px 0; border-bottom: 1px solid #222; }
 
-        .settings-btn { position: absolute; right: 10px; top: 10px; z-index: 1000; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 50%; cursor: pointer; }
-        .settings-panel { display: none; position: absolute; top: 65px; right: 10px; z-index: 1001; background: #111; padding: 20px; border-radius: 12px; border: 1px solid #444; width: 280px; color: white; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .settings-btn { position: absolute; right: 10px; top: 10px; z-index: 1000; background: #333; border: 1px solid #555; color: white; padding: 12px; border-radius: 50%; cursor: pointer; }
+        .settings-panel { display: none; position: absolute; top: 65px; right: 10px; z-index: 1001; background: #1a1a1a; padding: 20px; border-radius: 12px; border: 1px solid #444; width: 280px; color: white; max-height: 70vh; overflow-y: auto; }
         
         .btn { background: #007bff; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; margin-top: 8px; cursor: pointer; font-weight: bold; }
         select, input[type=range] { width: 100%; margin-top: 5px; padding: 8px; background: #222; color: #fff; border: 1px solid #444; border-radius: 4px; }
         
-        .shot { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 35px; font-weight: bold; z-index: 9999; text-align: center; animation: flash 0.5s infinite; }
-        @keyframes flash { 0% { opacity: 0.9; } 50% { opacity: 1; } 100% { opacity: 0.9; } }
+        .shot { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 35px; font-weight: bold; z-index: 9999; text-align: center; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <strong id="userNameDisplay">...</strong>
-    <div id="statusBadge" class="status-badge">Stand-by</div>
+    <div id="statusBadge" class="status-badge">STAND-BY</div>
 </div>
 
 <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
@@ -40,26 +40,20 @@
 <div class="settings-panel" id="settingsPanel">
     <strong>Systeem & Batterij</strong>
     <button id="wakeLockBtn" class="btn" onclick="toggleWakeLock()">🚫 Houd Scherm Aan</button>
-    
-    <hr style="border-color:#333">
-    <strong>Eigen Toeter:</strong>
-    <input type="file" id="audioUpload" accept="audio/*" onchange="handleFileUpload(event)">
-    
     <hr style="border-color:#333">
     <strong>Shot Kans: <span id="probVal">20</span>%</strong>
     <input type="range" id="probSlider" min="0" max="100" value="20" oninput="updateProb(this.value)">
-    
     <hr style="border-color:#333">
-    <strong>Simulator (Kies Lift)</strong>
+    <strong>Simulator</strong>
     <select id="liftSelect"></select>
-    <button class="btn" style="background:#2ed573" onclick="startSimulatie()">🚀 Test Rit Starten</button>
+    <button class="btn" style="background:#2ed573" onclick="startSimulatie()">🚀 Test Rit</button>
 </div>
 
 <div class="side-panel">
     <div class="box" id="leaderboard">Scores laden...</div>
     <div class="box">
         <b>📜 Historie</b>
-        <div id="historyLog">Nog geen ritten vandaag...</div>
+        <div id="historyLog">Wachten op actie...</div>
     </div>
 </div>
 
@@ -70,55 +64,38 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-// 1. FIREBASE SETUP
 const firebaseConfig = { apiKey: "AIzaSyBAGH-V7wnpHpu6bTIhwU-hFK5KJGDYj5g", authDomain: "vt-shot-tracker.firebaseapp.com", projectId: "vt-shot-tracker", storageBucket: "vt-shot-tracker.firebasestorage.app", messagingSenderId: "65574143328", appId: "1:65574143328:web:3219987d4ce5a9ed478a05" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// 2. JOUW VOLLEDIGE LIFTEN LIJST
-const lifts = [{"id":"lift_1777045737391","name":"VT26 GRAND FOND","type":"gondola","startLat":45.280839259058155,"startLng":6.568225622177124,"endLat":45.26627695547582,"endLng":6.580416262149811},{"id":"lift_1777045772826","name":"VT24 THORENS","type":"gondola","startLat":45.27222879300695,"startLng":6.591826379299165,"endLat":45.26591261403695,"endLng":6.595289111137391},{"id":"lift_1777045856665","name":"VT23 PORTETTE","type":"chair","startLat":45.286625392305766,"startLng":6.5833908319473275,"endLat":45.27190979185499,"endLng":6.591276526451112},{"id":"lift_1777045898643","name":"VT21 MORAINE","type":"gondola","startLat":45.28769159186485,"startLng":6.583313047885896,"endLat":45.272819601055765,"endLng":6.60618156194687},{"id":"lift_1777045962211","name":"VT14 CASCADES","type":"chair","startLat":45.2951204650048,"startLng":6.577489972114564,"endLat":45.291131599989455,"endLng":6.59454882144928},{"id":"lift_1777045998509","name":"VT13 PECLET","type":"gondola","startLat":45.295463864108015,"startLng":6.575864553451539,"endLat":45.29164484716567,"endLng":6.614381074905396},{"id":"lift_1777046087006","name":"VT15 LAC BLANC","type":"chair","startLat":45.29426384499162,"startLng":6.582296490669251,"endLat":45.29661668874574,"endLng":6.60655975341797},{"id":"lift_1777046199777","name":"VT2 PIONNIERS","type":"chair","startLat":45.29527895715698,"startLng":6.582065820693971,"endLat":45.30499518943833,"endLng":6.586842834949494},{"id":"lift_1777046256099","name":"PLEIN SUD","type":"chair","startLat":45.29517706939573,"startLng":6.571975350379944,"endLat":45.30558754275633,"endLng":6.588725745677948},{"id":"lift_1777046279017","name":"3 VALLEES CH","type":"chair","startLat":45.30507064880374,"startLng":6.5862876176834115,"endLat":45.31228787282188,"endLng":6.586960852146149},{"id":"lift_1777046299299","name":"3 VALLEES GD","type":"gondola","startLat":45.305032919133595,"startLng":6.586000621318817,"endLat":45.312353891277624,"endLng":6.581786870956422},{"id":"lift_1777046340749","name":"CAIRN","type":"gondola","startLat":45.29863737718759,"startLng":6.577752828598023,"endLat":45.29427705288738,"endLng":6.564548313617707},{"id":"lift_1777046357659","name":"CARON","type":"gondola","startLat":45.29423554234743,"startLng":6.564550995826722,"endLat":45.263873982699444,"endLng":6.560288965702058},{"id":"lift_1777046396813","name":"2 LACS","type":"chair","startLat":45.2963695220983,"startLng":6.571342349052429,"endLat":45.28199426821821,"endLng":6.573995053768159},{"id":"lift_1777046473145","name":"PLAIN DE L'EAU","type":"chair","startLat":45.30292567719034,"startLng":6.544198393821717,"endLat":45.28652915029749,"endLng":6.5495601296424875},{"id":"lift_1777046505245","name":"BOISMINT","type":"chair","startLat":45.29506574737321,"startLng":6.561461091041566,"endLat":45.28130541754579,"endLng":6.551311612129212},{"id":"lift_1777046531929","name":"MOUTIERE","type":"chair","startLat":45.29495065149305,"startLng":6.562356948852539,"endLat":45.282488725736215,"endLng":6.572903394699098},{"id":"lift_1777046656355","name":"ROSAËL","type":"chair","startLat":45.24667093165245,"startLng":6.57021850347519,"endLat":45.2659881254081,"endLng":6.575360298156739},{"id":"lift_1777046681371","name":"PEYRON","type":"chair","startLat":45.24604963632577,"startLng":6.5707576274871835,"endLat":45.251287943902405,"endLng":6.587773561477662},{"id":"lift_1777046704193","name":"BOUCHET","type":"chair","startLat":45.25057983755542,"startLng":6.586984992027284,"endLat":45.255591152349595,"endLng":6.599923968315125},{"id":"lift_1777046736913","name":"TYROLIENNE","type":"chair","startLat":45.255343806945056,"startLng":6.600637435913086,"endLat":45.26579557121317,"endLng":6.594371795654298},{"id":"lift_1777046893023","name":"FACE NORD","type":"chair","startLat":45.27589434620069,"startLng":6.598861813545228,"endLat":45.266142923404914,"endLng":6.595836281776428},{"id":"lift_1777046930169","name":"ORELLE-CARON","type":"chair","startLat":45.24621959620886,"startLng":6.569598913192749,"endLat":45.26310351966133,"endLng":6.559835672378541};
+const lifts = [{"id":"lift_1","name":"VT26 GRAND FOND","startLat":45.280839,"startLng":6.568225,"endLat":45.266276,"endLng":6.580416},{"id":"lift_2","name":"VT24 THORENS","startLat":45.272228,"startLng":6.591826,"endLat":45.265912,"endLng":6.595289},{"id":"lift_3","name":"VT23 PORTETTE","startLat":45.286625,"startLng":6.583390,"endLat":45.271909,"endLng":6.591276},{"id":"lift_4","name":"VT21 MORAINE","startLat":45.287691,"startLng":6.583313,"endLat":45.272819,"endLng":6.606181},{"id":"lift_5","name":"VT14 CASCADES","startLat":45.295120,"startLng":6.577489,"endLat":45.291131,"endLng":6.594548},{"id":"lift_6","name":"VT13 PECLET","startLat":45.295463,"startLng":6.575864,"endLat":45.291644,"endLng":6.614381},{"id":"lift_7","name":"VT15 LAC BLANC","startLat":45.294263,"startLng":6.582296,"endLat":45.296616,"endLng":6.606559},{"id":"lift_8","name":"VT2 PIONNIERS","startLat":45.295278,"startLng":6.582065,"endLat":45.304995,"endLng":6.586842},{"id":"lift_9","name":"PLEIN SUD","startLat":45.295177,"startLng":6.571975,"endLat":45.305587,"endLng":6.588725},{"id":"lift_10","name":"3 VALLEES CH","startLat":45.305070,"startLng":6.586287,"endLat":45.312287,"endLng":6.586960},{"id":"lift_11","name":"3 VALLEES GD","startLat":45.305032,"startLng":6.586000,"endLat":45.312353,"endLng":6.581786},{"id":"lift_12","name":"CAIRN","startLat":45.298637,"startLng":6.577752,"endLat":45.294277,"endLng":6.564548},{"id":"lift_13","name":"CARON","startLat":45.294235,"startLng":6.564550,"endLat":45.263873,"endLng":6.560288},{"id":"lift_14","name":"2 LACS","startLat":45.296369,"startLng":6.571342,"endLat":45.281994,"endLng":6.573995},{"id":"lift_15","name":"PLAIN DE L'EAU","startLat":45.302925,"startLng":6.544198,"endLat":45.286529,"endLng":6.549560},{"id":"lift_16","name":"BOISMINT","startLat":45.295065,"startLng":6.561461,"endLat":45.281305,"endLng":6.551311},{"id":"lift_17","name":"MOUTIERE","startLat":45.294950,"startLng":6.562356,"endLat":45.282488,"endLng":6.572903},{"id":"lift_18","name":"ROSAËL","startLat":45.246670,"startLng":6.570218,"endLat":45.265988,"endLng":6.575360},{"id":"lift_19","name":"PEYRON","startLat":45.246049,"startLng":6.570757,"endLat":45.251287,"endLng":6.587773},{"id":"lift_20","name":"BOUCHET","startLat":45.250579,"startLng":6.586984,"endLat":45.255591,"endLng":6.599923},{"id":"lift_21","name":"TYROLIENNE","startLat":45.255343,"startLng":6.600637,"endLat":45.265795,"endLng":6.594371},{"id":"lift_22","name":"FACE NORD","startLat":45.275894,"startLng":6.598861,"endLat":45.266142,"endLng":6.595836},{"id":"lift_23","name":"ORELLE-CARON","startLat":45.246219,"startLng":6.569598,"endLat":45.263103,"endLng":6.559835},{"id":"lift_24","name":"LA BEE","startLat":45.297014,"startLng":6.582790,"endLat":45.282345,"endLng":6.573686}];
 
-// 3. APP STATE
-let user = localStorage.getItem("vt_user") || prompt("Je naam?") || "Skiër";
+let user = localStorage.getItem("vt_user") || prompt("Naam?") || "Skiër";
 localStorage.setItem("vt_user", user);
 document.getElementById("userNameDisplay").innerText = user;
 
-let activeLift = null;
-let triggered = false;
-let wakeLock = null;
-let shotProbability = 20;
-let hornUrl = localStorage.getItem("vt_horn") || "https://www.soundjay.com/misc/sounds/air-horn-1.mp3";
+let activeLift = null, triggered = false, wakeLock = null, shotProbability = 20;
 
-// 4. MAP & UI
+// FIX: Altijd focussen op Val Thorens bij start
 const map = L.map('map', {zoomControl: false}).setView([45.295, 6.582], 14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 let userMarker = L.circleMarker([0,0], {radius: 7, color: "#fff", fillColor: "#007bff", fillOpacity: 1, weight: 2}).addTo(map);
 
 const liftSelect = document.getElementById("liftSelect");
-lifts.sort((a,b) => a.name.localeCompare(b.name)).forEach(l => {
-    L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#007bff", weight: 3, opacity: 0.4}).addTo(map);
+lifts.forEach(l => {
+    L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#007bff", weight: 3, opacity: 0.6}).addTo(map);
     let opt = document.createElement("option"); opt.value = l.id; opt.innerText = l.name;
     liftSelect.appendChild(opt);
 });
 
-// 5. FUNCTIONS
 async function toggleWakeLock() {
     if (wakeLock) { await wakeLock.release(); wakeLock = null; document.getElementById("wakeLockBtn").style.background="#007bff"; }
-    else { try { wakeLock = await navigator.wakeLock.request('screen'); document.getElementById("wakeLockBtn").style.background="#2ed573"; } catch(e){} }
-}
-
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = e => { hornUrl = e.target.result; localStorage.setItem("vt_horn", hornUrl); alert("Toeter opgeslagen!"); };
-        reader.readAsDataURL(file);
-    }
+    else { wakeLock = await navigator.wakeLock.request('screen'); document.getElementById("wakeLockBtn").style.background="#2ed573"; }
 }
 
 function addToLog(msg) {
     const log = document.getElementById("historyLog");
-    if(log.innerText.includes("Nog geen ritten")) log.innerHTML = "";
+    if(log.innerText.includes("Wachten")) log.innerHTML = "";
     const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     log.innerHTML = `<div class="log-entry"><b>${time}</b> ${msg}</div>` + log.innerHTML;
 }
@@ -135,64 +112,62 @@ function checkLogic(lat, lng) {
     lifts.forEach(l => {
         const dStart = getDist(lat, lng, l.startLat, l.startLng);
         const dEnd = getDist(lat, lng, l.endLat, l.endLng);
-
-        if (!activeLift && dStart < 85) {
+        if (!activeLift && dStart < 100) {
             activeLift = l; triggered = false;
             document.getElementById("statusBadge").innerText = l.name;
-            document.getElementById("statusBadge").style.background = "#2ed573";
-            addToLog(`🚠 Start rit: ${l.name}`);
+            addToLog(`🚠 Start: ${l.name}`);
         }
         if (activeLift && l.id === activeLift.id) {
             const dMid = getDist(lat, lng, (l.startLat+l.endLat)/2, (l.startLng+l.endLng)/2);
-            if (!triggered && dMid < 160) {
+            if (!triggered && dMid < 200) {
                 triggered = true;
-                if (Math.random() * 100 < shotProbability) triggerShot(l.name);
-                else addToLog(`✅ Geluk! Geen shotje in ${l.name}`);
+                if (Math.random() * 100 < shotProbability) shot(l.name);
+                else addToLog(`✅ Safe in ${l.name}`);
             }
-            if (dEnd < 85) {
+            if (dEnd < 100) {
                 activeLift = null;
-                document.getElementById("statusBadge").innerText = "Stand-by";
-                document.getElementById("statusBadge").style.background = "#333";
-                addToLog(`🏁 Einde rit: ${l.name}`);
+                document.getElementById("statusBadge").innerText = "STAND-BY";
             }
         }
     });
 }
 
-function triggerShot(liftName) {
+function shot(name) {
     const el = document.createElement("div");
-    el.className = "shot";
-    el.innerHTML = "🚨 SHOTJE TIJD! 🚨<br><span style='font-size:20px'>Proost op de ${liftName}! 🍻</span>";
+    el.className = "shot"; el.innerHTML = "🚨 SHOTJE! 🚨<br><span style='font-size:20px'>HUP HOLLAND! 🍻</span>";
     document.body.appendChild(el);
-    new Audio(hornUrl).play().catch(()=>{});
-    addToLog(`🥃 SHOTJE in ${liftName}!`);
+    addToLog(`🥃 DRINKEN in ${name}!`);
     db.collection("scores").doc(user).get().then(doc => {
         if(doc.exists) db.collection("scores").doc(user).update({score: doc.data().score + 1});
         else db.collection("scores").doc(user).set({name: user, score: 1});
     });
-    setTimeout(() => el.remove(), 4500);
+    setTimeout(() => el.remove(), 4000);
 }
 
 function startSimulatie() {
     const l = lifts.find(x => x.id === liftSelect.value);
     toggleSettings();
-    addToLog(`🧪 Simulatie gestart voor ${l.name}`);
-    checkLogic(l.startLat, l.startLng);
-    setTimeout(() => { map.panTo([(l.startLat+l.endLat)/2, (l.startLng+l.endLng)/2]); checkLogic((l.startLat+l.endLat)/2, (l.startLng+l.endLng)/2); }, 2500);
+    map.flyTo([l.startLat, l.startLng], 15);
+    setTimeout(() => checkLogic(l.startLat, l.startLng), 1000);
+    setTimeout(() => { map.panTo([(l.startLat+l.endLat)/2, (l.startLng+l.endLng)/2]); checkLogic((l.startLat+l.endLat)/2, (l.startLng+l.endLng)/2); }, 3000);
     setTimeout(() => { map.panTo([l.endLat, l.endLng]); checkLogic(l.endLat, l.endLng); }, 5000);
 }
 
-// 6. DB & GPS INIT
 db.collection("scores").onSnapshot(snap => {
     let arr = []; snap.forEach(d => arr.push(d.data()));
     arr.sort((a,b) => b.score - a.score);
     document.getElementById("leaderboard").innerHTML = "<b>🏆 Top Drinkers</b><hr style='border-color:#333'>" + arr.map(x => `<div>${x.name}: <b>${x.score}</b></div>`).join("");
 });
 
-function toggleSettings() { const s = document.getElementById("settingsPanel"); s.style.display = (s.style.display === "block") ? "none" : "block"; }
+function toggleSettings() { const s = document.getElementById("settingsPanel"); s.style.display = s.style.display === "block" ? "none" : "block"; }
 function updateProb(v) { shotProbability = v; document.getElementById("probVal").innerText = v; }
 
-navigator.geolocation.watchPosition(pos => checkLogic(pos.coords.latitude, pos.coords.longitude), null, {enableHighAccuracy: true});
+navigator.geolocation.watchPosition(pos => {
+    // Alleen focussen op gebruiker als je echt in VT bent, anders op afstand houden
+    const lat = pos.coords.latitude; const lng = pos.coords.longitude;
+    if (getDist(lat, lng, 45.295, 6.582) < 10000) map.setView([lat, lng]);
+    checkLogic(lat, lng);
+}, null, {enableHighAccuracy: true});
 </script>
 </body>
 </html>
