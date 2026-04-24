@@ -3,63 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VT Shot Tracker V11</title>
+    <title>VT Shot Tracker V14</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
-        body, html { margin: 0; height: 100%; background: #f0f2f5; color: #1c1e21; font-family: sans-serif; overflow: hidden; }
-        #map { height: 100%; width: 100%; z-index: 1; }
+        body, html { margin: 0; height: 100%; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        /* Kaart in Dark Mode voor batterijbesparing (OLED) */
+        #map { height: 100%; width: 100%; z-index: 1; filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
         
         .header { 
             position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
-            background: rgba(255, 255, 255, 0.95); padding: 8px 15px; border-radius: 30px; 
-            z-index: 1000; border: 1px solid #ccc; display: flex; align-items: center; gap: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1); white-space: nowrap;
+            background: rgba(20, 20, 20, 0.9); padding: 8px 15px; border-radius: 30px; 
+            z-index: 1000; border: 1px solid #444; display: flex; align-items: center; gap: 10px;
         }
 
-        .status-badge { 
-            font-size: 12px; padding: 4px 10px; border-radius: 15px; 
-            background: #eee; font-weight: bold; display: flex; align-items: center; gap: 8px;
-        }
+        .status-badge { font-size: 11px; padding: 4px 10px; border-radius: 15px; background: #333; color: #eee; font-weight: bold; }
+        .side-panel { position: absolute; left: 10px; bottom: 20px; z-index: 1000; width: 170px; display: flex; flex-direction: column; gap: 8px; }
+        .box { background: rgba(15, 15, 15, 0.9); padding: 10px; border-radius: 12px; border: 1px solid #333; font-size: 12px; color: #fff; }
+        
+        #historyLog { max-height: 80px; overflow-y: auto; font-size: 10px; color: #aaa; margin-top: 5px; }
+        .log-entry { border-bottom: 1px solid #222; padding: 2px 0; }
 
-        .reset-btn { 
-            background: #ff4757; color: white; border: none; border-radius: 50%; 
-            width: 18px; height: 18px; font-size: 10px; cursor: pointer; display: none; 
-            align-items: center; justify-content: center;
-        }
-
-        .leaderboard { position: absolute; left: 10px; bottom: 25px; background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 12px; font-size: 14px; z-index: 1000; border: 1px solid #ccc; min-width: 130px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-height: 20vh; overflow-y: auto; }
-        .settings-btn { position: absolute; right: 10px; top: 10px; z-index: 1000; background: #fff; border: 1px solid #ccc; padding: 10px; border-radius: 50%; cursor: pointer; font-size: 20px; }
-        .settings-panel { display: none; position: absolute; top: 65px; right: 10px; z-index: 1001; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #ccc; width: 260px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .settings-btn { position: absolute; right: 10px; top: 10px; z-index: 1000; background: #222; border: 1px solid #444; color: white; padding: 10px; border-radius: 50%; cursor: pointer; }
+        .settings-panel { display: none; position: absolute; top: 65px; right: 10px; z-index: 1001; background: #111; padding: 20px; border-radius: 12px; border: 1px solid #444; width: 250px; color: white; }
         
         .btn { background: #007bff; color: white; border: none; padding: 10px; width: 100%; border-radius: 5px; margin-top: 8px; cursor: pointer; font-weight: bold; }
-        .shot { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; z-index: 9999; text-align: center; color: white; padding: 20px; }
+        .shot { position: fixed; inset: 0; background: rgba(255, 0, 0, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 35px; font-weight: bold; z-index: 9999; text-align: center; color: white; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <strong id="userNameDisplay">...</strong>
-    <div id="statusBadge" class="status-badge">
-        <span id="statusText">Stand-by</span>
-        <button id="manualReset" class="reset-btn" onclick="resetLift()">✕</button>
-    </div>
+    <div id="statusBadge" class="status-badge">Stand-by</div>
 </div>
 
 <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
 
 <div class="settings-panel" id="settingsPanel">
-    <strong>Shot Kans: <span id="probVal">20</span>%</strong><br>
+    <strong>Systeeminstellingen</strong>
+    <button id="wakeLockBtn" class="btn" onclick="toggleWakeLock()">🚫 Houd Scherm Aan</button>
+    <p style="font-size:10px; color:#888;">Zet dit aan en je helderheid laag voor de beste GPS-ontvangst in je zak.</p>
+    
+    <hr style="border-color:#333">
+    <strong>Kans op Shot: <span id="probVal">20</span>%</strong>
     <input type="range" id="probSlider" style="width:100%" min="0" max="100" value="20" oninput="updateProb(this.value)">
-    <hr>
-    <strong>Toeter Geluid:</strong>
-    <input type="file" id="audioUpload" accept="audio/*" onchange="handleFileUpload(event)" style="font-size:11px; margin-top:5px;">
-    <hr>
-    <strong>Simulatie</strong>
-    <select id="liftSelect" style="width:100%; padding:5px;"></select>
-    <button class="btn" style="background:#2ed573" onclick="startSimulatie()">🚀 Start Rit</button>
+    
+    <hr style="border-color:#333">
+    <button class="btn" style="background:#2ed573" onclick="startSimulatie()">🚀 Test Rit Simulatie</button>
 </div>
 
-<div class="leaderboard" id="lb">Scores laden...</div>
+<div class="side-panel">
+    <div class="box" id="leaderboard">Scores laden...</div>
+    <div class="box">
+        <b>📜 Historie</b>
+        <div id="historyLog">Wachten op actie...</div>
+    </div>
+</div>
+
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -67,71 +67,53 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-// 1. CONFIG & DATA
-const firebaseConfig = {
-    apiKey: "AIzaSyBAGH-V7wnpHpu6bTIhwU-hFK5KJGDYj5g",
-    authDomain: "vt-shot-tracker.firebaseapp.com",
-    projectId: "vt-shot-tracker",
-    storageBucket: "vt-shot-tracker.firebasestorage.app",
-    messagingSenderId: "65574143328",
-    appId: "1:65574143328:web:3219987d4ce5a9ed478a05"
-};
+// 1. FIREBASE INITIALISATIE
+const firebaseConfig = { apiKey: "AIzaSyBAGH-V7wnpHpu6bTIhwU-hFK5KJGDYj5g", authDomain: "vt-shot-tracker.firebaseapp.com", projectId: "vt-shot-tracker", storageBucket: "vt-shot-tracker.firebasestorage.app", messagingSenderId: "65574143328", appId: "1:65574143328:web:3219987d4ce5a9ed478a05" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
+// 2. LIFT DATA
 const lifts = [
-    {"id":"L1","name":"VT26 GRAND FOND","startLat":45.2808,"startLng":6.5682,"endLat":45.2662,"endLng":6.5804},
-    {"id":"L2","name":"VT24 THORENS","startLat":45.2722,"startLng":6.5918,"endLat":45.2659,"endLng":6.5952},
-    {"id":"L3","name":"VT23 PORTETTE","startLat":45.2866,"startLng":6.5833,"endLat":45.2719,"endLng":6.5912},
-    {"id":"L4","name":"VT21 MORAINE","startLat":45.2876,"startLng":6.5833,"endLat":45.2728,"endLng":6.6061},
-    {"id":"L5","name":"VT14 CASCADES","startLat":45.2951,"startLng":6.5774,"endLat":45.2911,"endLng":6.5945},
+    {"id":"L1","name":"GRAND FOND","startLat":45.2808,"startLng":6.5682,"endLat":45.2662,"endLng":6.5804},
+    {"id":"L2","name":"THORENS","startLat":45.2722,"startLng":6.5918,"endLat":45.2659,"endLng":6.5952},
+    {"id":"L3","name":"PORTETTE","startLat":45.2866,"startLng":6.5833,"endLat":45.2719,"endLng":6.5912},
+    {"id":"L4","name":"MORAINE","startLat":45.2876,"startLng":6.5833,"endLat":45.2728,"endLng":6.6061},
+    {"id":"L5","name":"CASCADES","startLat":45.2951,"startLng":6.5774,"endLat":45.2911,"endLng":6.5945},
     {"id":"L12","name":"CARON","startLat":45.2942,"startLng":6.5645,"endLat":45.2638,"endLng":6.5602}
 ];
 
-// 2. INITIALISATIE
+// 3. APP STATE
 let user = localStorage.getItem("vt_user") || prompt("Naam?") || "Skiër";
 localStorage.setItem("vt_user", user);
 document.getElementById("userNameDisplay").innerText = user;
 
-let shotProbability = localStorage.getItem("vt_prob") || 20;
-let hornUrl = localStorage.getItem("vt_horn") || "https://www.soundjay.com/misc/sounds/air-horn-1.mp3";
 let activeLift = null;
 let triggered = false;
-let liftLayers = {};
+let wakeLock = null;
+let shotProbability = 20;
 
+// 4. KAART SETUP
 const map = L.map('map', {zoomControl: false}).setView([45.295, 6.582], 14);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+let userMarker = L.circleMarker([0,0], {radius: 7, color: "#fff", fillColor: "#007bff", fillOpacity: 1, weight: 2}).addTo(map);
 
-lifts.forEach(l => {
-    liftLayers[l.id] = L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#007bff", weight: 4, opacity: 0.5}).addTo(map);
-    let opt = document.createElement("option"); opt.value = l.id; opt.innerText = l.name;
-    document.getElementById("liftSelect").appendChild(opt);
-});
-
-let userMarker = L.circleMarker([0,0], {radius: 9, color: "#fff", fillColor: "#ff4757", fillOpacity: 1, weight: 3}).addTo(map);
-
-// 3. FUNCTIES
-function updateProb(v) { shotProbability = v; document.getElementById("probVal").innerText = v; localStorage.setItem("vt_prob", v); }
-function toggleSettings() { const s = document.getElementById("settingsPanel"); s.style.display = s.style.display === "block" ? "none" : "block"; }
-
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = e => { hornUrl = e.target.result; localStorage.setItem("vt_horn", hornUrl); alert("Toeter opgeslagen!"); };
-        reader.readAsDataURL(file);
-    }
+// 5. WAKE LOCK
+async function toggleWakeLock() {
+    try {
+        if (wakeLock) {
+            await wakeLock.release();
+            wakeLock = null;
+            document.getElementById("wakeLockBtn").innerText = "🚫 Houd Scherm Aan";
+            document.getElementById("wakeLockBtn").style.background = "#007bff";
+        } else {
+            wakeLock = await navigator.wakeLock.request('screen');
+            document.getElementById("wakeLockBtn").innerText = "✅ Scherm blijft aan";
+            document.getElementById("wakeLockBtn").style.background = "#2ed573";
+        }
+    } catch (err) { console.error(err); }
 }
 
-function resetLift() {
-    if(activeLift) liftLayers[activeLift.id].setStyle({color: "#007bff", weight: 4});
-    activeLift = null;
-    triggered = false;
-    document.getElementById("statusText").innerText = "Stand-by";
-    document.getElementById("statusBadge").style.background = "#eee";
-    document.getElementById("manualReset").style.display = "none";
-}
-
+// 6. TRACKING LOGICA
 function getDist(lat1, lon1, lat2, lon2) {
     const R = 6371000;
     const dLat = (lat2-lat1) * Math.PI/180;
@@ -142,41 +124,40 @@ function getDist(lat1, lon1, lat2, lon2) {
 
 function checkLogic(lat, lng) {
     userMarker.setLatLng([lat, lng]);
-    const statusText = document.getElementById("statusText");
-    const statusBadge = document.getElementById("statusBadge");
-    const resetBtn = document.getElementById("manualReset");
-
     lifts.forEach(l => {
         const dStart = getDist(lat, lng, l.startLat, l.startLng);
         const dEnd = getDist(lat, lng, l.endLat, l.endLng);
 
-        if (!activeLift && dStart < 75) {
-            activeLift = l;
-            triggered = false;
-            statusText.innerText = l.name;
-            statusBadge.style.background = "#2ed573";
-            resetBtn.style.display = "flex";
-            liftLayers[l.id].setStyle({color: "#ff4757", weight: 6, opacity: 1});
+        if (!activeLift && dStart < 80) {
+            activeLift = l; triggered = false;
+            document.getElementById("statusBadge").innerText = l.name;
+            document.getElementById("statusBadge").style.background = "#2ed573";
+            addToLog(`🚠 Start: ${l.name}`);
         }
 
         if (activeLift && l.id === activeLift.id) {
             const dMid = getDist(lat, lng, (l.startLat+l.endLat)/2, (l.startLng+l.endLng)/2);
-            if (!triggered && dMid < 150) {
+            if (!triggered && dMid < 160) {
                 triggered = true;
-                if (Math.random() * 100 < shotProbability) shot();
+                if (Math.random() * 100 < shotProbability) shot(l.name);
+                else addToLog(`✅ Safe in ${l.name}`);
             }
-            if (dEnd < 75) resetLift();
+            if (dEnd < 80) {
+                activeLift = null;
+                document.getElementById("statusBadge").innerText = "Stand-by";
+                document.getElementById("statusBadge").style.background = "#333";
+            }
         }
     });
 }
 
-function shot() {
+function shot(name) {
     const el = document.createElement("div");
     el.className = "shot";
-    el.innerHTML = "<div>🚨 SHOTJE! 🚨</div><div style='font-size:20px'>Hup Holland Hup! 🍻</div>";
+    el.innerHTML = "🚨 SHOTJE! 🚨<br><span style='font-size:18px'>HUP HOLLAND! 🍻</span>";
     document.body.appendChild(el);
-    if(navigator.vibrate) navigator.vibrate([400, 100, 400]);
-    new Audio(hornUrl).play().catch(()=>{});
+    new Audio("https://www.soundjay.com/misc/sounds/air-horn-1.mp3").play().catch(()=>{});
+    addToLog(`🥃 SHOTJE in ${name}!`);
     db.collection("scores").doc(user).get().then(doc => {
         if(doc.exists) db.collection("scores").doc(user).update({score: doc.data().score + 1});
         else db.collection("scores").doc(user).set({name: user, score: 1});
@@ -184,24 +165,28 @@ function shot() {
     setTimeout(() => el.remove(), 4000);
 }
 
-function startSimulatie() {
-    const lift = lifts.find(l => l.id === document.getElementById("liftSelect").value);
-    toggleSettings();
-    checkLogic(lift.startLat, lift.startLng);
-    setTimeout(() => { map.panTo([(lift.startLat+lift.endLat)/2, (lift.startLng+lift.endLng)/2]); checkLogic((lift.startLat+lift.endLat)/2, (lift.startLng+lift.endLng)/2); }, 3000);
-    setTimeout(() => { map.panTo([lift.endLat, lift.endLng]); checkLogic(lift.endLat, lift.endLng); }, 6000);
+function addToLog(msg) {
+    const log = document.getElementById("historyLog");
+    if(log.innerText.includes("Wachten")) log.innerHTML = "";
+    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    log.innerHTML = `<div class="log-entry"><b>${time}</b> ${msg}</div>` + log.innerHTML;
 }
+
+// UI HANDLERS
+function toggleSettings() { const s = document.getElementById("settingsPanel"); s.style.display = s.style.display === "block" ? "none" : "block"; }
+function updateProb(v) { shotProbability = v; document.getElementById("probVal").innerText = v; }
+
+lifts.forEach(l => {
+    L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#007bff", weight: 3, opacity: 0.6}).addTo(map);
+});
 
 db.collection("scores").onSnapshot(snap => {
     let arr = []; snap.forEach(d => arr.push(d.data()));
     arr.sort((a,b) => b.score - a.score);
-    document.getElementById("lb").innerHTML = "<b>🍻 Top Drinkers</b><hr>" + arr.map(x => `<div>${x.name}: <b>${x.score}</b></div>`).join("");
+    document.getElementById("leaderboard").innerHTML = "<b>🏆 Top Drinkers</b><hr style='border-color:#333'>" + arr.map(x => `<div>${x.name}: <b>${x.score}</b></div>`).join("");
 });
 
-navigator.geolocation.watchPosition(pos => {
-    checkLogic(pos.coords.latitude, pos.coords.longitude);
-}, null, {enableHighAccuracy: true});
-
+navigator.geolocation.watchPosition(pos => checkLogic(pos.coords.latitude, pos.coords.longitude), null, {enableHighAccuracy: true});
 </script>
 </body>
 </html>
