@@ -1,102 +1,134 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VT Shot Tracker V5</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VT Shot Tracker V6</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 
-<style>
-body,html{margin:0;height:100%;background:#0d1117;color:#fff;font-family:sans-serif;}
-#map{height:100%}
+    <style>
+        body, html { margin: 0; height: 100%; background: #0d1117; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        #map { height: 100%; width: 100%; background: #0d1117; }
 
-.header{
-position:absolute;top:10px;left:50%;transform:translateX(-50%);
-background:#161b22;padding:8px 16px;border-radius:20px;z-index:1000;
-}
+        /* UI Elementen */
+        .header {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(22, 27, 34, 0.9); padding: 8px 20px; border-radius: 25px; 
+            z-index: 1000; border: 1px solid #30363d; font-weight: bold;
+        }
 
-.leaderboard{
-position:absolute;right:10px;top:10px;
-background:#161b22;padding:10px;border-radius:10px;
-font-size:12px;z-index:1000;
-}
+        .leaderboard {
+            position: absolute; left: 10px; bottom: 20px;
+            background: rgba(22, 27, 34, 0.95); padding: 12px; border-radius: 10px;
+            font-size: 13px; z-index: 1000; border: 1px solid #30363d; min-width: 100px;
+        }
 
-.shot{
-position:fixed;inset:0;background:rgba(0,0,0,0.9);
-display:flex;align-items:center;justify-content:center;
-font-size:40px;font-weight:bold;z-index:2000;
-}
-</style>
+        /* Settings Menu */
+        .settings-btn {
+            position: absolute; right: 10px; top: 10px; z-index: 1000;
+            background: #21262d; border: 1px solid #30363d; color: white;
+            padding: 10px; border-radius: 50%; cursor: pointer; font-size: 20px;
+        }
+
+        .settings-panel {
+            display: none; position: absolute; top: 60px; right: 10px; z-index: 1001;
+            background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d;
+            width: 200px;
+        }
+
+        /* Shot Animatie */
+        .shot {
+            position: fixed; inset: 0; background: rgba(255, 0, 0, 0.8);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 40px; font-weight: bold; z-index: 9999; text-align: center;
+        }
+
+        input[type=range] { width: 100%; margin-top: 10px; }
+    </style>
 </head>
 <body>
 
-<div class="header" id="user"></div>
-<div class="leaderboard" id="lb">Loading...</div>
+<div class="header" id="userNameDisplay">Laden...</div>
 
+<button class="settings-btn" onclick="toggleSettings()">⚙️</button>
+<div class="settings-panel" id="settingsPanel">
+    <strong>Shot Kans: <span id="probVal">20</span>%</strong><br>
+    <input type="range" id="probSlider" min="0" max="100" value="20" oninput="updateProb(this.value)">
+    <p style="font-size: 10px; color: #8b949e; margin-top: 10px;">
+        Hoe hoger, hoe vaker je moet drinken in de lift.
+    </p>
+</div>
+
+<div class="leaderboard" id="lb">Scores laden...</div>
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- FIXED FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
 <script>
-
-// 🔥 jouw config
+// 1. FIREBASE CONFIG
 const firebaseConfig = {
-  apiKey: "AIzaSyBAGH-V7wnpHpu6bTIhwU-hFK5KJGDYj5g",
-  authDomain: "vt-shot-tracker.firebaseapp.com",
-  projectId: "vt-shot-tracker",
-  storageBucket: "vt-shot-tracker.firebasestorage.app",
-  messagingSenderId: "65574143328",
-  appId: "1:65574143328:web:3219987d4ce5a9ed478a05"
+    apiKey: "AIzaSyBAGH-V7wnpHpu6bTIhwU-hFK5KJGDYj5g",
+    authDomain: "vt-shot-tracker.firebaseapp.com",
+    projectId: "vt-shot-tracker",
+    storageBucket: "vt-shot-tracker.firebasestorage.app",
+    messagingSenderId: "65574143328",
+    appId: "1:65574143328:web:3219987d4ce5a9ed478a05"
 };
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// USER
-let user = localStorage.getItem("user");
+// 2. USER EN SETTINGS
+let user = localStorage.getItem("vt_user");
 if(!user){
-  user = prompt("Naam?");
-  localStorage.setItem("user", user);
+    user = prompt("Wat is je naam voor het scorebord?");
+    if(!user) user = "Anonieme Skiër";
+    localStorage.setItem("vt_user", user);
 }
-document.getElementById("user").innerText = user;
+document.getElementById("userNameDisplay").innerText = user;
 
-// LEADERBOARD LIVE
-db.collection("scores").onSnapshot(snap=>{
-  let arr=[];
-  snap.forEach(d=>arr.push(d.data()));
-  arr.sort((a,b)=>b.score-a.score);
+let shotProbability = localStorage.getItem("vt_prob") || 20;
+document.getElementById("probSlider").value = shotProbability;
+document.getElementById("probVal").innerText = shotProbability;
 
-  document.getElementById("lb").innerHTML =
-    "<b>🍻 Live</b><br>" +
-    arr.map(x=>`${x.name}: ${x.score}`).join("<br>");
+function toggleSettings() {
+    const p = document.getElementById("settingsPanel");
+    p.style.display = p.style.display === "block" ? "none" : "block";
+}
+
+function updateProb(val) {
+    shotProbability = val;
+    document.getElementById("probVal").innerText = val;
+    localStorage.setItem("vt_prob", val);
+}
+
+// 3. SCORE SYSTEEM
+function addPoint(){
+    const ref = db.collection("scores").doc(user);
+    ref.get().then(doc => {
+        if(doc.exists) ref.update({score: doc.data().score + 1});
+        else ref.set({name: user, score: 1});
+    }).catch(e => console.error("Score fout:", e));
+}
+
+db.collection("scores").onSnapshot(snap => {
+    let arr = [];
+    snap.forEach(d => arr.push(d.data()));
+    arr.sort((a,b) => b.score - a.score);
+    document.getElementById("lb").innerHTML = "<b>🍻 Top Drinkers</b><hr>" + 
+        arr.map(x => `<div>${x.name}: <b>${x.score}</b></div>`).join("");
 });
 
-// SCORE UPDATE
-function addPoint(){
-  const ref = db.collection("scores").doc(user);
+// 4. KAART (DARK MODE)
+const map = L.map('map', {zoomControl: false}).setView([45.295, 6.582], 14);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap'
+}).addTo(map);
 
-  ref.get().then(doc=>{
-    if(doc.exists){
-      ref.update({score: doc.data().score+1});
-    } else {
-      ref.set({name:user,score:1});
-    }
-  });
-}
-
-// MAP
-const map = L.map('map').setView([45.295,6.582],13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-// USER MARKER
-let userMarker=null;
-
-// LIFTS (kort voorbeeld — plak hier jouw volledige lijst!)
+// Lifts data
 const lifts = [
 {"id":"lift_1777045737391","name":"VT26 GRAND FOND","type":"gondola","startLat":45.280839259058155,"startLng":6.568225622177124,"endLat":45.26627695547582,"endLng":6.580416262149811},
 {"id":"lift_1777045772826","name":"VT24 THORENS","type":"gondola","startLat":45.27222879300695,"startLng":6.591826379299165,"endLat":45.26591261403695,"endLng":6.595289111137391},
@@ -123,98 +155,70 @@ const lifts = [
 {"id":"lift_1777046930169","name":"OR2 ORELLE-CARON","type":"chair","startLat":45.24621959620886,"startLng":6.569598913192749,"endLat":45.26310351966133,"endLng":6.559835672378541},
 {"id":"lift_1777047054461","name":"LA BEE","type":"drag","startLat":45.29701479459216,"startLng":6.582790017127992,"endLat":45.282345295754865,"endLng":6.573686599731446}
 ];
-
-// DRAW
-lifts.forEach(l=>{
-  L.polyline([[l.startLat,l.startLng],[l.endLat,l.endLng]],{color:"#388bfd"}).addTo(map);
+  
+lifts.forEach(l => {
+    L.polyline([[l.startLat, l.startLng], [l.endLat, l.endLng]], {color: "#388bfd", weight: 3, opacity: 0.6}).addTo(map);
 });
 
-// DIST
-function dist(a,b,c,d){
-  const R=6371000;
-  const dLat=(c-a)*Math.PI/180;
-  const dLng=(d-b)*Math.PI/180;
-  const x=Math.sin(dLat/2)**2+
-    Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*
-    Math.sin(dLng/2)**2;
-  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+// 5. GPS & LOGICA
+let userMarker = L.circleMarker([0,0], {radius: 8, color: "#fff", fillColor: "#388bfd", fillOpacity: 1}).addTo(map);
+let activeLift = null;
+let triggered = false;
+
+function getDist(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const dLat = (lat2-lat1) * Math.PI/180;
+    const dLon = (lon2-lon1) * Math.PI/180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// LINE DIST
-function distLine(lat,lng,l){
-  const A={x:l.startLat,y:l.startLng};
-  const B={x:l.endLat,y:l.endLng};
-  const P={x:lat,y:lng};
-
-  const ABx=B.x-A.x;
-  const ABy=B.y-A.y;
-  const APx=P.x-A.x;
-  const APy=P.y-A.y;
-
-  const t=Math.max(0,Math.min(1,(APx*ABx+APy*ABy)/(ABx*ABx+ABy*ABy)));
-
-  const x=A.x+ABx*t;
-  const y=A.y+ABy*t;
-
-  return dist(lat,lng,x,y);
+function shot() {
+    const el = document.createElement("div");
+    el.className = "shot";
+    el.innerHTML = "<div>🚨 SHOTJE! 🚨</div><div style='font-size:20px'>HUP HOLLAND HUP</div>";
+    document.body.appendChild(el);
+    
+    if(navigator.vibrate) navigator.vibrate([300, 100, 300]);
+    new Audio("https://www.soundjay.com/misc/sounds/air-horn-1.mp3").play().catch(e=>{});
+    
+    addPoint();
+    setTimeout(() => el.remove(), 4000);
 }
 
-// STATE
-let activeLift=null;
-let triggered=false;
-
-// SHOT
-function shot(){
-  const el=document.createElement("div");
-  el.className="shot";
-  el.innerHTML="🚨 SHOTJE! 🚨";
-  document.body.appendChild(el);
-
-  navigator.vibrate?.([200,100,200]);
-  new Audio("https://www.soundjay.com/misc/sounds/air-horn-1.mp3").play();
-
-  addPoint();
-
-  setTimeout(()=>el.remove(),2000);
-}
-
-// GPS
-navigator.geolocation.watchPosition(pos=>{
-  const lat=pos.coords.latitude;
-  const lng=pos.coords.longitude;
-
-  if(!userMarker){
-    userMarker=L.circleMarker([lat,lng],{radius:8,color:"#fff",fillColor:"#388bfd",fillOpacity:1}).addTo(map);
-  } else userMarker.setLatLng([lat,lng]);
-
-  lifts.forEach(l=>{
-    const dStart=dist(lat,lng,l.startLat,l.startLng);
-    const dLine=distLine(lat,lng,l);
-
-    if(!activeLift && dStart<60){
-      activeLift=l;
-      triggered=false;
-    }
-
-    if(activeLift && l.id===activeLift.id){
-      if(dLine<50){
-        const midLat=(l.startLat+l.endLat)/2;
-        const midLng=(l.startLng+l.endLng)/2;
-        const dMid=dist(lat,lng,midLat,midLng);
-
-        if(!triggered && dMid<80){
-          triggered=true;
-          if(Math.random()<0.2){
-            shot();
-          }
+navigator.geolocation.watchPosition(pos => {
+    const {latitude: lat, longitude: lng} = pos.coords;
+    userMarker.setLatLng([lat, lng]);
+    
+    lifts.forEach(l => {
+        const dStart = getDist(lat, lng, l.startLat, l.startLng);
+        
+        // Stap je in de lift? (binnen 60 meter van start)
+        if (!activeLift && dStart < 60) {
+            activeLift = l;
+            triggered = false;
+            console.log("Ingestapt bij: " + l.name);
         }
-      } else {
-        activeLift=null;
-      }
-    }
-  });
 
-},{enableHighAccuracy:true});
+        // Ben je halverwege?
+        if (activeLift && l.id === activeLift.id) {
+            const midLat = (l.startLat + l.endLat) / 2;
+            const midLng = (l.startLng + l.endLng) / 2;
+            const dMid = getDist(lat, lng, midLat, midLng);
+
+            if (!triggered && dMid < 100) {
+                triggered = true;
+                if (Math.random() * 100 < shotProbability) {
+                    shot();
+                }
+            }
+            
+            // Stap je uit? (binnen 60 meter van eind)
+            const dEnd = getDist(lat, lng, l.endLat, l.endLng);
+            if (dEnd < 60) activeLift = null;
+        }
+    });
+}, e => console.error(e), {enableHighAccuracy: true});
 
 </script>
 </body>
